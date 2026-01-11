@@ -1,8 +1,8 @@
-# **FastAPIChat test project**
+<h1 align="center">FastAPIChat test project</h1>
 
 ---
 
-- **in this project models**
+- <span style="color:blue">**in this project models**
     - StatusChoice
     - UserProfile
     - ChatGroup
@@ -25,5 +25,16 @@ ___
 | [*2*](https://www.youtube.com/watch?v=cn-XfCgE_Kk)       |
 | [*3*](https://www.youtube.com/watch?v=hbseyn-CfXY)       |
 
-!!! danger "Пример danger"
-    здесь указан класс danger
+
+> ℹ️ **comments:** required for work Python 3.12.10
+
+
+<div align="center">
+
+### <span style="color:red">**Warning**  
+
+*the project's in further development*
+
+</div>
+
+Need to add more lines of code and check it through prop and redis

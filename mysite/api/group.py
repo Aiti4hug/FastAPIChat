@@ -20,14 +20,14 @@ group_router = APIRouter(prefix='/group', tags=['Chat Group'])
 def check_group_owner(group_id: int, user_id: int, db: Session):
     group = db.query(ChatGroup).filter(ChatGroup.id == group_id).first()
     if not group:
-        raise HTTPException(status_code=404, detail='Группа табылган жок')
+        raise HTTPException(status_code=404, detail='Группа не найдена')
 
     user = db.query(UserProfile).filter(UserProfile.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail='Колдонуучу табылган жок')
+        raise HTTPException(status_code=404, detail='Пользователь не найден')
 
     if group.owner_id != user_id and user.user_status != StatusChoice.admin:
-        raise HTTPException(status_code=403, detail='Бул группаны башкарууга укук жок')
+        raise HTTPException(status_code=403, detail='У вас нет прав на управление этой группой')
 
     return group
 
@@ -36,7 +36,7 @@ def check_group_owner(group_id: int, user_id: int, db: Session):
 async def group_create(group: ChatGroupCreateSchema, db: Session = Depends(get_db)):
     owner = db.query(UserProfile).filter(UserProfile.id == group.owner_id).first()
     if not owner:
-        raise HTTPException(status_code=404, detail='Ээси табылган жок')
+        raise HTTPException(status_code=404, detail='Владелец не найден')
 
     group_db = ChatGroup(**group.dict())
     db.add(group_db)
@@ -54,7 +54,7 @@ async def group_list(db: Session = Depends(get_db)):
 async def group_detail(group_id: int, db: Session = Depends(get_db)):
     group_db = db.query(ChatGroup).filter(ChatGroup.id == group_id).first()
     if not group_db:
-        raise HTTPException(status_code=404, detail='Группа табылган жок')
+        raise HTTPException(status_code=404, detail='Группа не найдена')
     return group_db
 
 
@@ -65,7 +65,7 @@ async def group_update(group_id: int, group: ChatGroupCreateSchema,
 
     owner = db.query(UserProfile).filter(UserProfile.id == group.owner_id).first()
     if not owner:
-        raise HTTPException(status_code=404, detail='Ээси табылган жок')
+        raise HTTPException(status_code=404, detail='Владелец не найден')
 
     for group_key, group_value in group.dict().items():
         setattr(group_db, group_key, group_value)
@@ -89,6 +89,6 @@ async def group_delete(group_id: int, current_user_id: int, db: Session = Depend
 async def groups_by_owner(owner_id: int, db: Session = Depends(get_db)):
     owner = db.query(UserProfile).filter(UserProfile.id == owner_id).first()
     if not owner:
-        raise HTTPException(status_code=404, detail='Колдонуучу табылган жок')
+        raise HTTPException(status_code=404, detail='Пользователь не найден')
 
     return db.query(ChatGroup).filter(ChatGroup.owner_id == owner_id).all()

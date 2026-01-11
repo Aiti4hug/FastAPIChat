@@ -2,8 +2,8 @@ from typing import Dict, Set, List, Optional, Any
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
-from mysite.db.database import SessionLocal
-from mysite.db.models import UserProfile, ChatGroup, GroupPeople, ChatMessage
+from mysite.database.db import Session
+from mysite.database.models import UserProfile, GroupPeople, ChatGroup, ChatMessage
 from mysite.config import SECRET_KEY, ALGORITHM
 
 chat_router = APIRouter(tags=["Chat WS"])
