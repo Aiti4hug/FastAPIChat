@@ -37,4 +37,4 @@ ___
 
 </div>
 
-Need to add more lines of code and check it through prop and redis
+- Need to add more lines of code and check it through postgresql and redis
