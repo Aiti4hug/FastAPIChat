@@ -28,6 +28,9 @@ ___
 
 > ℹ️ **comments:** required for work Python 3.12.10
 
+> ℹ️ **comments:** run via command  ` /docs `
+
+
 
 <div align="center">
 
