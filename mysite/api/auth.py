@@ -2,7 +2,7 @@ from fastapi import HTTPException, Depends, APIRouter
 from mysite.database.models import UserProfile, ChatGroup, GroupPeople, ChatMessage
 from mysite.database.schema import (UserProfileCreateSchema, UserProfileLoginSchema,
                                 UserProfileOutSchema)
-from mysite.database.db import Session
+from mysite.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from typing import Optional
 from passlib.context import CryptContext
@@ -15,7 +15,7 @@ from datetime import timedelta, datetime
 
 
 async def get_db():
-    db = Session()
+    db = SessionLocal()
     try:
         yield db
     finally:
@@ -35,11 +35,22 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(
+    data: dict,
+    expires_delta: Optional[timedelta] = None
+):
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta if expires_delta else timedelta(minutes=ACCESS_TOKEN_LIFETIME))
-    to_encode.update({'exp': expire})
+    expire = datetime.utcnow() + (
+        expires_delta
+        if expires_delta
+        else timedelta(minutes=ACCESS_TOKEN_LIFETIME)
+    )
+    to_encode.update({
+        "exp": expire,
+        "type": "access"
+    })
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
 
 
 def create_refresh_token(data: dict):
@@ -72,12 +83,14 @@ async def register(user: UserProfileCreateSchema, db: Session = Depends(get_db))
 
 
 @auth_router.post('/login')
-async def login(form_data: UserProfileLoginSchema = Depends(),
-                db: Session = Depends(get_db)):
+async def login(
+    form_data: UserProfileLoginSchema,
+    db: Session = Depends(get_db)
+):
     user = db.query(UserProfile).filter(UserProfile.username == form_data.username).first()
 
     if not user or not verify_password(form_data.password, user.password):
-        raise HTTPException(status_code=404, detail='Invalid credentials')
+        raise HTTPException(status_code=401, detail='Invalid credentials')
 
     access_token = create_access_token({'sub': user.username})
     refresh_token = create_refresh_token({'sub': user.username})
@@ -90,35 +103,47 @@ async def login(form_data: UserProfileLoginSchema = Depends(),
 
 
 @auth_router.post('/logout')
-async def logout(refresh_token: str, db: Session = Depends(get_db)):
-    return {'message': 'Logged out successfully'}
+async def logout():
+    return {"message": "Client should delete tokens"}
 
 
 @auth_router.post('/refresh')
-async def refresh(refresh_token: str, db: Session = Depends(get_db)):
+async def refresh(refresh_token: str):
     try:
         payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get('sub')
 
-        if username is None:
-            raise HTTPException(status_code=401, detail='Invalid token')
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+
+        username = payload.get("sub")
+        if not username:
+            raise HTTPException(status_code=401)
 
         access_token = create_access_token({'sub': username})
-
         return {'access_token': access_token, 'token_type': 'bearer'}
 
     except jwt.JWTError:
         raise HTTPException(status_code=401, detail='Invalid token')
 
 
-@auth_router.delete('/')
-async def delete_user(user_id: int, db: Session = Depends(get_db)):
-    user_db = db.query(UserProfile).filter(UserProfile.id == user_id).first()
 
-    if user_db is None:
-        raise HTTPException(status_code=404, detail='User not found')
+@auth_router.delete('/me')
+async def delete_me(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-    db.delete(user_db)
+    username = payload.get("sub")
+    user = db.query(UserProfile).filter(UserProfile.username == username).first()
+
+    if not user:
+        raise HTTPException(status_code=404)
+
+    db.delete(user)
     db.commit()
 
-    return {'message': 'User deleted successfully'}
+    return {"message": "User deleted"}

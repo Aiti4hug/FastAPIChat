@@ -1,13 +1,13 @@
 from fastapi import HTTPException, Depends, APIRouter
 from mysite.database.models import GroupPeople, ChatGroup, UserProfile, StatusChoice
 from mysite.database.schema import GroupPeopleCreateSchema, GroupPeopleOutSchema
-from mysite.database.db import Session
+from mysite.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from typing import List
 
 
-async def get_db():
-    db = Session()
+def get_db():
+    db = SessionLocal()
     try:
         yield db
     finally:
@@ -102,6 +102,12 @@ async def people_delete(people_id: int, current_user_id: int, db: Session = Depe
 
     group = db.query(ChatGroup).filter(ChatGroup.id == people_db.group_id).first()
     user = db.query(UserProfile).filter(UserProfile.id == current_user_id).first()
+
+    if not group:
+        raise HTTPException(404, 'Группа не найдена')
+
+    if not user:
+        raise HTTPException(404, 'Пользователь не найден')
 
     can_delete = (
             group.owner_id == current_user_id or

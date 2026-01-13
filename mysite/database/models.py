@@ -16,9 +16,9 @@ class UserProfile(Base):
     __tablename__ = 'profile'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    username: Mapped[int] = mapped_column(String(50))
-    email: Mapped[int] = mapped_column(String(100))
-    password: Mapped[int] = mapped_column(String(100))
+    username: Mapped[str] = mapped_column(String(50))
+    email: Mapped[str] = mapped_column(String(100))
+    password: Mapped[str] = mapped_column(String(100))
     user_status: Mapped[StatusChoice] = mapped_column(Enum(StatusChoice), default=StatusChoice.simple)
     date_registered: Mapped[date] = mapped_column(Date, default=date.today)
 
@@ -26,8 +26,11 @@ class UserProfile(Base):
                                                          cascade='all, delete-orphan')
     user_groups: Mapped[List['GroupPeople']] = relationship(back_populates='user',
                                                             cascade='all, delete-orphan')
-    user_sms: Mapped[List['ChatMessage']] = relationship(back_populates='user',
-                                                         cascade='all, delete-orphan')
+    user_sms: Mapped[List['ChatMessage']] = relationship(
+        "ChatMessage",
+        back_populates='user',
+        cascade='all, delete-orphan'
+    )
 
 
 #   @validates("password")
@@ -38,7 +41,7 @@ class UserProfile(Base):
 
 
 class ChatGroup(Base):
-    __tablename__ = 'group'
+    __tablename__ = 'chat_group'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey('profile.id'))
@@ -47,26 +50,36 @@ class ChatGroup(Base):
     create_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     group_chats: Mapped[List['GroupPeople']] = relationship(back_populates='group',
                                                             cascade='all, delete-orphan')
-    group_massages: Mapped[List['ChatMessage']] = relationship(back_populates='group_massages',
-                                                               cascade='all, delete-orphan')
+    group_messages: Mapped[List['ChatMessage']] = relationship(
+        "ChatMessage",
+        back_populates='group',
+        cascade='all, delete-orphan'
+    )
 
 class GroupPeople(Base):
-    __tablename__ = 'people'
+    __tablename__ = 'chat_people'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    group_id: Mapped[int] = mapped_column(ForeignKey('group.id'))
-    group: Mapped[ChatGroup] = relationship(ChatGroup, back_populates='group_chats')
+    group_id: Mapped[int] = mapped_column(ForeignKey('chat_group.id'))
+    group: Mapped[ChatGroup] = relationship("ChatGroup", back_populates='group_chats')
     user_id: Mapped[int] = mapped_column(ForeignKey('profile.id'))
-    user: Mapped[UserProfile] = relationship(back_populates='user_groups')
+    user: Mapped[UserProfile] = relationship("UserProfile", back_populates='user_groups')
     joined_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+
 class ChatMessage(Base):
-    __tablename__ = 'massages'
+    __tablename__ = 'group_messages'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    group_id: Mapped[int] = mapped_column(ForeignKey('group.id'))
-    group_mes: Mapped[ChatGroup] = relationship(ChatGroup, back_populates='group_massages')
+    group_id: Mapped[int] = mapped_column(ForeignKey('chat_group.id'))
+    group: Mapped[ChatGroup] = relationship(
+        "ChatGroup",
+        back_populates='group_messages'
+    )
     user_id: Mapped[int] = mapped_column(ForeignKey('profile.id'))
-    user_message: Mapped[UserProfile] = relationship(back_populates='user_sms')
+    user: Mapped[UserProfile] = relationship(
+        "UserProfile",
+        back_populates='user_sms'
+    )
     text: Mapped[str] = mapped_column(Text)
     create_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

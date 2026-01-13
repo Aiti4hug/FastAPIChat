@@ -1,13 +1,13 @@
 from fastapi import HTTPException, Depends, APIRouter
 from mysite.database.models import UserProfile, StatusChoice
 from mysite.database.schema import UserProfileCreateSchema, UserProfileOutSchema, UserProfileLoginSchema
-from mysite.database.db import Session
+from mysite.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from typing import List
 
 
 async def get_db():
-    db = Session()
+    db = SessionLocal()
     try:
         yield db
     finally:
@@ -20,9 +20,9 @@ user_router = APIRouter(prefix='/user', tags=['User Profile'])
 def check_admin(user_id: int, db: Session):
     user = db.query(UserProfile).filter(UserProfile.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail='Колдонуучу табылган жок')
+        raise HTTPException(status_code=404, detail='Пользователь не найден')
     if user.user_status != StatusChoice.admin:
-        raise HTTPException(status_code=403, detail='Администратор укуктары жок')
+        raise HTTPException(status_code=403, detail='Права администратора отсутствуют.')
     return user
 
 
@@ -30,7 +30,7 @@ def check_owner(user_id: int, current_user_id: int, db: Session):
     if user_id != current_user_id:
         user = db.query(UserProfile).filter(UserProfile.id == current_user_id).first()
         if not user or user.user_status != StatusChoice.admin:
-            raise HTTPException(status_code=403, detail='Бул аккаунтту өзгөртүүгө укук жок')
+            raise HTTPException(status_code=403, detail='У этой учетной записи нет разрешения на ее изменение.')
 
 
 @user_router.post('/', response_model=dict)
@@ -40,7 +40,7 @@ async def user_create(user: UserProfileCreateSchema, db: Session = Depends(get_d
     ).first()
 
     if existing_user:
-        raise HTTPException(status_code=400, detail='Мындай колдонуучу бар')
+        raise HTTPException(status_code=400, detail='Такой пользователь существует.')
 
     user_db = UserProfile(**user.dict())
     db.add(user_db)
@@ -58,7 +58,7 @@ async def user_list(db: Session = Depends(get_db)):
 async def user_detail(user_id: int, db: Session = Depends(get_db)):
     user_db = db.query(UserProfile).filter(UserProfile.id == user_id).first()
     if not user_db:
-        raise HTTPException(status_code=404, detail='Колдонуучу табылган жок')
+        raise HTTPException(status_code=404, detail='Пользователь не найден')
     return user_db
 
 
@@ -67,7 +67,7 @@ async def user_update(user_id: int, user: UserProfileCreateSchema,
                       current_user_id: int, db: Session = Depends(get_db)):
     user_db = db.query(UserProfile).filter(UserProfile.id == user_id).first()
     if not user_db:
-        raise HTTPException(status_code=404, detail='Колдонуучу табылган жок')
+        raise HTTPException(status_code=404, detail='Пользователь не найден')
 
     check_owner(user_id, current_user_id, db)
 
@@ -84,7 +84,7 @@ async def user_update(user_id: int, user: UserProfileCreateSchema,
 async def user_delete(user_id: int, current_user_id: int, db: Session = Depends(get_db)):
     user_db = db.query(UserProfile).filter(UserProfile.id == user_id).first()
     if user_db is None:
-        raise HTTPException(status_code=404, detail='Андай маалымат жок')
+        raise HTTPException(status_code=404, detail='Такой информации нет.')
 
     check_owner(user_id, current_user_id, db)
 
@@ -98,10 +98,10 @@ async def user_login(login_data: UserProfileLoginSchema, db: Session = Depends(g
     user_db = db.query(UserProfile).filter(UserProfile.username == login_data.username).first()
 
     if not user_db:
-        raise HTTPException(status_code=404, detail='Колдонуучу табылган жок')
+        raise HTTPException(status_code=404, detail='Пользователь не найден')
 
     if user_db.password != login_data.password:
-        raise HTTPException(status_code=401, detail='Пароль туура эмес')
+        raise HTTPException(status_code=401, detail='Неправильный пароль')
 
     return {'message': 'Login successful', 'user_id': user_db.id, 'status': user_db.user_status}
 
@@ -113,7 +113,7 @@ async def change_user_status(user_id: int, new_status: StatusChoice,
 
     user_db = db.query(UserProfile).filter(UserProfile.id == user_id).first()
     if not user_db:
-        raise HTTPException(status_code=404, detail='Колдонуучу табылган жок')
+        raise HTTPException(status_code=404, detail='Пользователь не найден')
 
     user_db.user_status = new_status
     db.add(user_db)

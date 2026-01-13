@@ -1,13 +1,13 @@
-from fastapi import HTTPException, Depends, APIRouter
+from fastapi import HTTPException, Depends, APIRouter, Query
 from mysite.database.models import ChatGroup, UserProfile, StatusChoice
 from mysite.database.schema import ChatGroupCreateSchema, ChatGroupOutSchema
-from mysite.database.db import Session
+from mysite.database.db import SessionLocal
 from sqlalchemy.orm import Session
 from typing import List
 
 
-async def get_db():
-    db = Session()
+def get_db():
+    db = SessionLocal()
     try:
         yield db
     finally:
@@ -32,17 +32,17 @@ def check_group_owner(group_id: int, user_id: int, db: Session):
     return group
 
 
-@group_router.post('/', response_model=dict)
-async def group_create(group: ChatGroupCreateSchema, db: Session = Depends(get_db)):
+@group_router.post('/', response_model=ChatGroupOutSchema)
+def group_create(group: ChatGroupCreateSchema, db: Session = Depends(get_db)):
     owner = db.query(UserProfile).filter(UserProfile.id == group.owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail='Владелец не найден')
 
-    group_db = ChatGroup(**group.dict())
+    group_db = ChatGroup(**group.model_dump())
     db.add(group_db)
     db.commit()
     db.refresh(group_db)
-    return {'message': 'Saved'}
+    return group_db
 
 
 @group_router.get('/', response_model=List[ChatGroupOutSchema])
@@ -59,30 +59,34 @@ async def group_detail(group_id: int, db: Session = Depends(get_db)):
 
 
 @group_router.put('/{group_id}', response_model=ChatGroupOutSchema)
-async def group_update(group_id: int, group: ChatGroupCreateSchema,
-                       current_user_id: int, db: Session = Depends(get_db)):
+def group_update(
+    group_id: int,
+    group: ChatGroupCreateSchema,
+    current_user_id: int = Query(...),
+    db: Session = Depends(get_db)
+):
     group_db = check_group_owner(group_id, current_user_id, db)
 
-    owner = db.query(UserProfile).filter(UserProfile.id == group.owner_id).first()
-    if not owner:
-        raise HTTPException(status_code=404, detail='Владелец не найден')
+    data = group.model_dump(exclude={"owner_id"})
+    for key, value in data.items():
+        setattr(group_db, key, value)
 
-    for group_key, group_value in group.dict().items():
-        setattr(group_db, group_key, group_value)
-
-    db.add(group_db)
     db.commit()
     db.refresh(group_db)
     return group_db
 
 
 @group_router.delete('/{group_id}')
-async def group_delete(group_id: int, current_user_id: int, db: Session = Depends(get_db)):
+def group_delete(
+    group_id: int,
+    current_user_id: int = Query(...),
+    db: Session = Depends(get_db)
+):
     group_db = check_group_owner(group_id, current_user_id, db)
-
     db.delete(group_db)
     db.commit()
     return {'message': 'Deleted'}
+
 
 
 @group_router.get('/owner/{owner_id}', response_model=List[ChatGroupOutSchema])
